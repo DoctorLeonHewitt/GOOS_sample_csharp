@@ -1,7 +1,7 @@
 ﻿using AuctionSniper.Domain;
 using AuctionSniper.Fakes.XMPPServer;
 using NUnit.Framework;
-using Rhino.Mocks;
+using Moq;
 
 namespace AuctionSniper.Tests.Unit
 {
@@ -10,45 +10,31 @@ namespace AuctionSniper.Tests.Unit
     {
         private const string SNIPER_ID = "test";
         public const Chat UNUSED_CHAT = null;
-        private IAuctionEventListener _mockListener;
-
-        private MockRepository _mocks;
+        private Mock<IAuctionEventListener> _mockListener;
+        
         private AuctionMessageTranslator _translator;
 
         [SetUp]
         public void TestSetup()
         {
-            _mocks = new MockRepository();
-            _mockListener = _mocks.StrictMock<IAuctionEventListener>();
-            _translator = new AuctionMessageTranslator(SNIPER_ID, _mockListener);
+            _mockListener = new Mock<IAuctionEventListener>();
+            _translator = new AuctionMessageTranslator(SNIPER_ID, _mockListener.Object);
         }
-
-        [TearDown]
-        public void TestCleanup()
-        {
-            _mocks.ReplayAll();
-            _mocks.VerifyAll();
-        }
+        
 
         [Test]
         public void NotifiesAuctionClosedWhenCloseMessageReceived()
         {
-            _mockListener.AuctionClosed();
-
-            _mocks.ReplayAll();
-
             var message = new Message(UNUSED_CHAT) {Body = "SOLVersion: 1.1; Event: CLOSE;"};
             var mlea = new MessageListenerEventArgs(message);
             _translator.InvokeProcessMessage(mlea);
+            
+            _mockListener.Verify(ml => ml.AuctionClosed());
         }
 
         [Test]
         public void NotifiesBidDetailsWhenCurrentPriceMessageReceivedFromSniper()
         {
-            _mockListener.CurrentPrice(234, 5, Enums.PriceSource.FromSniper);
-
-            _mocks.ReplayAll();
-
             var message = new Message(UNUSED_CHAT)
                               {
                                   Body =
@@ -58,15 +44,12 @@ namespace AuctionSniper.Tests.Unit
                               };
             var mlea = new MessageListenerEventArgs(message);
             _translator.InvokeProcessMessage(mlea);
+            _mockListener.Verify(ml => ml.CurrentPrice(234, 5, Enums.PriceSource.FromSniper));
         }
 
         [Test]
         public void NotifiesBidDetailsWhenCurrentPriceMessageReceivedFromOtherBidder()
         {
-            _mockListener.CurrentPrice(192, 7, Enums.PriceSource.FromOtherBidder);
-
-            _mocks.ReplayAll();
-
             var message = new Message(UNUSED_CHAT)
                               {
                                   Body =
@@ -74,6 +57,8 @@ namespace AuctionSniper.Tests.Unit
                               };
             var mlea = new MessageListenerEventArgs(message);
             _translator.InvokeProcessMessage(mlea);
+            
+            _mockListener.Verify(ml => ml.CurrentPrice(192, 7, Enums.PriceSource.FromOtherBidder));
         }
     }
 }
